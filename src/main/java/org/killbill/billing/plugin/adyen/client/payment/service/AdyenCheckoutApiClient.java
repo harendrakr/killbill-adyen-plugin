@@ -2,7 +2,6 @@ package org.killbill.billing.plugin.adyen.client.payment.service;
 
 import com.adyen.Client;
 import com.adyen.enums.Environment;
-import com.adyen.model.ApiError;
 import com.adyen.model.checkout.PaymentsDetailsRequest;
 import com.adyen.model.checkout.PaymentsRequest;
 import com.adyen.model.checkout.PaymentsResponse;
@@ -34,7 +33,9 @@ public class AdyenCheckoutApiClient {
             environment = Environment.LIVE;
         }
 
-        final Client client = new Client(adyenConfigProperties.getApiKey(countryCode), environment);
+        //default API key KEY_NOT_FOUND, log it
+        final String apiKey = adyenConfigProperties.getApiKey(countryCode);
+        final Client client = new Client(apiKey, environment);
         checkoutApi = new Checkout(client);
     }
 
@@ -58,9 +59,20 @@ public class AdyenCheckoutApiClient {
     }
 
     private void logResponse(final PaymentsResponse response) {
-        //mask sensitive data from response
-        final String logResponse = jsonObject(response);
-        logger.info("Checkout API response: \n\n" + logResponse);
+        final StringBuilder responseBuilder = new StringBuilder();
+        responseBuilder.append("ResultCode:" + response.getResultCode() + "\n")
+                       .append("PspReference:" + response.getPspReference() + "\n")
+                       .append("MerchantReference" + response.getMerchantReference() + "\n")
+                       .append("RefusalReason:" + response.getRefusalReason() + "\n")
+                       .append("RefusalCode:" + response.getResultCode() + "\n")
+                       .append("Details:" + response.getDetails().toString() + "\n");
+        if(response.getAction() != null) {
+            responseBuilder.append("Action.type:" + response.getAction().getType() + "\n")
+                           .append("Action.method:" + response.getAction().getMethod() + "\n")
+                           .append("Action.paymentType:" + response.getAction().getPaymentMethodType());
+        }
+        final String responseLog = responseBuilder.toString();
+        logger.info("Checkout API success: {}\n{}", response.getResultCode(), responseLog);
     }
 
     public AdyenCallResult<PaymentsResponse> paymentDetails(PaymentsDetailsRequest request) {
@@ -89,11 +101,11 @@ public class AdyenCheckoutApiClient {
             return new SuccessfulAdyenCall<RES>(result, duration);
         } catch (ApiException ex) {
             final long duration = System.currentTimeMillis() - startTime;
-            logger.warn("Exception during Adyen request", ex);
+            logger.error("Checkout API exception: \n{}\n", ex.toString());
             return handleException(ex, duration);
         } catch (IOException ex) {
             final long duration = System.currentTimeMillis() - startTime;
-            logger.warn("Exception during Adyen request", ex);
+            logger.error("Checkout API exception: \n{}\n", ex.toString());
             return handleException(ex, duration);
         }
     }
@@ -112,24 +124,11 @@ public class AdyenCheckoutApiClient {
 
     private <T> UnSuccessfulAdyenCall<T> handleException(final Exception ex, final long duration) {
         final Throwable rootCause = Throwables.getRootCause(ex);
-
-        logger.error("Error sending request:", ex.getMessage());
+        logger.error("Error sending request: {}", rootCause.getMessage());
         if(ex instanceof ApiException) {
-            ApiException apiException = (ApiException) ex;
-            ApiError apiError = apiException.getError();
-            String errorDetails = new StringBuilder()
-                    .append("status :" + apiError.getStatus())
-                    .append("errorCode :" + apiError.getErrorCode())
-                    .append("message: " + apiError.getMessage())
-                    .append("type: " +  apiError.getErrorType())
-                    .append("pspReference: " + apiError.getPspReference())
-                    .toString();
-            logger.error("API exception:", errorDetails);
             return new FailedCheckoutApiCall<T>(RESPONSE_ABOUT_INVALID_REQUEST, rootCause, ex);
-        } else if(ex instanceof IOException) {
-            return new FailedCheckoutApiCall<T>(REQUEST_NOT_SEND, rootCause, ex);
         } else {
-            return new FailedCheckoutApiCall<T>(UNKNOWN_FAILURE, rootCause, ex);
+            return new FailedCheckoutApiCall<T>(REQUEST_NOT_SEND, rootCause, ex);
         }
     }
 

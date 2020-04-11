@@ -77,8 +77,7 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
         }
 
         //shipping address
-        if(paymentInfo.usingShippingAddress() &&
-           paymentInfo.getShippingAddress() != null) {
+        if(paymentInfo.getShippingAddress() != null) {
             setDeliveryAddress(paymentInfo.getShippingAddress());
         }
 
@@ -99,8 +98,8 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
 
     private void setDeliveryAddress(PropertyMapper.Address shippingAddress){
         Address address = new Address();
-        address.setHouseNumberOrName(shippingAddress.getAddress1());
-        address.setStreet(shippingAddress.getAddress2());
+        address.setStreet(shippingAddress.getAddress1());
+        address.setHouseNumberOrName(shippingAddress.getAddress2());
         address.setStateOrProvince(shippingAddress.getState()); //optional
         address.setCity(shippingAddress.getCity());
         address.setCountry(shippingAddress.getCountry());
@@ -114,6 +113,7 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
         if(additionalData != null) {
             String encodedData = Base64.getEncoder().encodeToString(additionalData.getBytes(Charsets.UTF_8));
             request.putAdditionalDataItem(OPEN_INVOICE_MERCHANT_DATA, encodedData);
+            logger.info("Merchant data: " + additionalData);
         } else {
             logger.error("Failed to include merchant data in payment request");
         }
@@ -137,7 +137,8 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
     }
 
     private void setAmount() {
-        if (paymentData.getAmount() == null || paymentData.getCurrency() == null) {
+        if (paymentData.getAmount() == null ||
+            paymentData.getCurrency() == null) {
             return;
         }
 

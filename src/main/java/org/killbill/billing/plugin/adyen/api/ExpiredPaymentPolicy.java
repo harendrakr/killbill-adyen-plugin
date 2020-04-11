@@ -20,6 +20,7 @@ package org.killbill.billing.plugin.adyen.api;
 import java.util.List;
 
 import org.joda.time.DateTime;
+import org.jooq.tools.StringUtils;
 import org.killbill.billing.payment.api.TransactionType;
 import org.killbill.billing.payment.plugin.api.PaymentPluginStatus;
 import org.killbill.billing.payment.plugin.api.PaymentTransactionInfoPlugin;
@@ -81,7 +82,7 @@ public class ExpiredPaymentPolicy {
 
     private DateTime expirationDateForInitialTransactionType(final AdyenPaymentTransactionInfoPlugin transaction) {
         final String paymentMethod = getPaymentMethod(transaction);
-        if (is3ds(transaction)) {
+        if (is3ds(transaction) || isKlarnaPayment(paymentMethod)) {
             return transaction.getCreatedDate().plus(adyenProperties.getPending3DsPaymentExpirationPeriod());
         } else if(isHppBuildFormTransaction(transaction)) {
             return transaction.getCreatedDate().plus(adyenProperties.getPendingHppPaymentWithoutCompletionExpirationPeriod(paymentMethod));
@@ -97,6 +98,12 @@ public class ExpiredPaymentPolicy {
 
         final AdyenResponsesRecord adyenResponsesRecord = transaction.getAdyenResponseRecord().get();
         return isHppPayment(adyenResponsesRecord) && !isHppCompletionTransaction(adyenResponsesRecord);
+    }
+
+    private boolean isKlarnaPayment(final String paymentMethod) {
+        return StringUtils.equals(paymentMethod, "klarna") ||
+               StringUtils.equals(paymentMethod, "klarna_account") ||
+               StringUtils.equals(paymentMethod, "klarna_paynow");
     }
 
     private boolean is3ds(final AdyenPaymentTransactionInfoPlugin transaction) {
