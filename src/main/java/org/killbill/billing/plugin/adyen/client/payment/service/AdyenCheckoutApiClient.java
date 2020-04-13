@@ -124,6 +124,7 @@ public class AdyenCheckoutApiClient {
 
     private <T> UnSuccessfulAdyenCall<T> handleException(final Exception ex, final long duration) {
         final Throwable rootCause = Throwables.getRootCause(ex);
+        logger.info("Checkout API duration="+ duration +" response=exception");
         logger.error("Error sending request: {}", rootCause.getMessage());
         if(ex instanceof ApiException) {
             return new FailedCheckoutApiCall<T>(RESPONSE_ABOUT_INVALID_REQUEST, rootCause, ex);
