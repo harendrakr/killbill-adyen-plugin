@@ -1438,7 +1438,7 @@ public class TestAdyenPaymentPluginApi extends TestAdyenPaymentPluginApiBase {
     }
 
     @Test(groups = "integration")
-    public void testKlarnaPaymentRequestRedirectShopper() throws Exception {
+    public void testKlarnaPaymentRedirectShopper() throws Exception {
         final Iterable<PluginProperty> klarnaPaymentProperties = addPaymentDetailsForKlarna(propertiesWithKlarnaPayment);
         adyenPaymentPluginApi.addPaymentMethod(account.getId(), account.getPaymentMethodId(), adyenEmptyPaymentMethodPlugin(), true, klarnaPaymentProperties, context);
         final Payment payment = TestUtils.buildPayment(account.getId(), account.getPaymentMethodId(), account.getCurrency(), killbillApi);
@@ -1455,6 +1455,7 @@ public class TestAdyenPaymentPluginApi extends TestAdyenPaymentPluginApiBase {
                 propertiesWithKlarnaPayment,
                 context);
         assertNull(authorizeResult.getGatewayErrorCode());
+        assertNull(authorizeResult.getGatewayError());
         assertEquals(authorizeResult.getTransactionType(), TransactionType.AUTHORIZE);
         assertEquals(authorizeResult.getStatus(), PaymentPluginStatus.PENDING);
 
