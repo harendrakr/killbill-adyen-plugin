@@ -60,19 +60,28 @@ public class AdyenCheckoutApiClient {
 
     private void logResponse(final PaymentsResponse response) {
         final StringBuilder responseBuilder = new StringBuilder();
-        responseBuilder.append("ResultCode:" + response.getResultCode() + "\n")
-                       .append("PspReference:" + response.getPspReference() + "\n")
-                       .append("MerchantReference" + response.getMerchantReference() + "\n")
-                       .append("RefusalReason:" + response.getRefusalReason() + "\n")
-                       .append("RefusalCode:" + response.getResultCode() + "\n")
-                       .append("Details:" + response.getDetails().toString() + "\n");
-        if(response.getAction() != null) {
-            responseBuilder.append("Action.type:" + response.getAction().getType() + "\n")
-                           .append("Action.method:" + response.getAction().getMethod() + "\n")
-                           .append("Action.paymentType:" + response.getAction().getPaymentMethodType());
+        final String result;
+        if(response != null) {
+            result = "SUCCESS";
+            responseBuilder.append("ResultCode:").append(response.getResultCode()).append("\n")
+                           .append("PspReference:").append(response.getPspReference()).append("\n")
+                           .append("MerchantReference").append(response.getMerchantReference()).append("\n")
+                           .append("RefusalReason:").append(response.getRefusalReason()).append("\n")
+                           .append("RefusalCode:").append(response.getResultCode()).append("\n");
+            if (response.getDetails() != null) {
+                responseBuilder.append("Details:").append(response.getDetails().toString()).append("\n");
+            }
+            if (response.getAction() != null) {
+                responseBuilder.append("Action.type:").append(response.getAction().getType()).append("\n")
+                               .append("Action.method:").append(response.getAction().getMethod()).append("\n")
+                               .append("Action.paymentType:").append(response.getAction().getPaymentMethodType());
+            }
+        } else {
+            result = "FAILED";
+            responseBuilder.append("No response received");
         }
         final String responseLog = responseBuilder.toString();
-        logger.info("Checkout API success: {}\n{}", response.getResultCode(), responseLog);
+        logger.info("Checkout API {}:\n{}", result, responseLog);
     }
 
     public AdyenCallResult<PaymentsResponse> paymentDetails(PaymentsDetailsRequest request) {
