@@ -39,11 +39,6 @@ public class AdyenCheckoutApiClient {
         checkoutApi = new Checkout(client);
     }
 
-    @VisibleForTesting
-    AdyenCheckoutApiClient(final Checkout checkoutApi) {
-        this.checkoutApi = checkoutApi;
-    }
-
     public AdyenCallResult<PaymentsResponse> createPayment(PaymentsRequest request) {
         final AdyenCallResult<PaymentsResponse> result;
         result = callApi(request, new ApiRequest<PaymentsRequest, PaymentsResponse>() {

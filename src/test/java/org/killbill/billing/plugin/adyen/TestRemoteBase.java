@@ -33,12 +33,12 @@ import org.killbill.billing.plugin.adyen.client.jaxws.LoggingOutInterceptor;
 import org.killbill.billing.plugin.adyen.client.payment.builder.AdyenRequestFactory;
 import org.killbill.billing.plugin.adyen.client.payment.converter.PaymentInfoConverterManagement;
 import org.killbill.billing.plugin.adyen.client.payment.converter.impl.PaymentInfoConverterService;
-import org.killbill.billing.plugin.adyen.client.payment.service.AdyenCheckoutApiClient;
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentRequestSender;
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServiceProviderHostedPaymentPagePort;
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServiceProviderPort;
 import org.killbill.billing.plugin.adyen.client.payment.service.DirectoryClient;
 import org.killbill.billing.plugin.adyen.client.payment.service.Signer;
+import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutClientFactory;
 import org.killbill.billing.plugin.adyen.client.recurring.AdyenRecurringClient;
 import org.killbill.billing.plugin.adyen.core.AdyenActivator;
 import org.killbill.billing.plugin.adyen.core.AdyenConfigPropertiesConfigurationHandler;
@@ -114,13 +114,14 @@ public abstract class TestRemoteBase {
 
         final Signer signer = new Signer();
         final AdyenRequestFactory adyenRequestFactory = new AdyenRequestFactory(paymentInfoConverterManagement, adyenConfigProperties, signer);
+        final CheckoutClientFactory checkoutClientFactory = new CheckoutClientFactory(adyenConfigProperties);
 
         final LoggingInInterceptor loggingInInterceptor = new LoggingInInterceptor();
         final LoggingOutInterceptor loggingOutInterceptor = new LoggingOutInterceptor();
         final HttpHeaderInterceptor httpHeaderInterceptor = new HttpHeaderInterceptor();
         final PaymentPortRegistry adyenPaymentPortRegistry = new AdyenPaymentPortRegistry(adyenConfigProperties, loggingInInterceptor, loggingOutInterceptor, httpHeaderInterceptor);
         final AdyenPaymentRequestSender adyenPaymentRequestSender = new AdyenPaymentRequestSender(adyenPaymentPortRegistry);
-        adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender, adyenConfigProperties);
+        adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender, checkoutClientFactory);
         final DirectoryClient directoryClient = new DirectoryClient(adyenConfigProperties.getDirectoryUrl(),
                                                                     adyenConfigProperties.getProxyServer(),
                                                                     adyenConfigProperties.getProxyPort(),
