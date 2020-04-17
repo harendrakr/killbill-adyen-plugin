@@ -107,6 +107,7 @@ public class AdyenConfigProperties {
     private final String rbacUsername;
     private final String rbacPassword;
     private final String environment;
+    private final String checkoutUrl;
 
     private final Period pendingPaymentExpirationPeriod;
 
@@ -230,6 +231,7 @@ public class AdyenConfigProperties {
         this.rbacPassword = properties.getProperty(PROPERTY_PREFIX + "rbacPassword");
 
         this.environment = properties.getProperty(CHECKOUT_PREFIX + "environment", "TEST");
+        this.checkoutUrl = properties.getProperty(CHECKOUT_PREFIX + "urlPrefix");
         readCheckoutApiKeyConfig(properties);
     }
 
@@ -524,8 +526,10 @@ public class AdyenConfigProperties {
 
     public String getEnvironment() { return environment; }
 
+    public String getCheckoutUrl() { return checkoutUrl; }
+
     public String getApiKey(final String countryCode) {
         final String apiKey = countryToApiKeyMap.get(countryCode);
-        return StringUtils.isEmpty(apiKey) ? "KEY_NOT_FOUND" : apiKey;
+        return StringUtils.isEmpty(apiKey) ? "API_KEY_NOT_FOUND" : apiKey;
     }
 }

@@ -33,9 +33,18 @@ public class AdyenCheckoutApiClient {
             environment = Environment.LIVE;
         }
 
-        //default API key KEY_NOT_FOUND, log it
+        //default API key KEY_NOT_FOUND if not configured
         final String apiKey = adyenConfigProperties.getApiKey(countryCode);
-        final Client client = new Client(apiKey, environment);
+        final String apiKeyConfigLog = StringUtils.equals(apiKey, "KEY_NOT_FOUND") ? "API_KEY_NOT_VALID" : "API_KEY_VALID";
+
+        //url prefix is used only for live (production) environment
+        //Adyen TEST environment, ignores url prefix parameter
+        final String liveUrlPrefix = adyenConfigProperties.getCheckoutUrl();
+
+        logger.info("Checkout client config: environment={}, api_key={}, url_prefix={}",
+                    environment.toString(), apiKeyConfigLog, liveUrlPrefix);
+
+        final Client client = new Client(apiKey, environment, liveUrlPrefix);
         checkoutApi = new Checkout(client);
     }
 
