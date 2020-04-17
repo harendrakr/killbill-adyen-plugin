@@ -48,7 +48,7 @@ public abstract class KlarnaPaymentMappingService {
             setVoucherInfo(lineItems, builder);
             setSellerInfo(lineItems, builder);
             List<LineItem> adjustments = getLineAdjustments(lineItems);
-            if(adjustments != null) {
+            if(!CollectionUtils.isEmpty(adjustments)) {
                 lineItems.addAll(adjustments);
             }
 
@@ -78,10 +78,10 @@ public abstract class KlarnaPaymentMappingService {
     private static List<LineItem> getLineAdjustments(final List<LineItem> lineItems) {
         final Map<String, LineAdjustment> adjustmentMap = new HashMap<>();
         final List<LineItem> adjustmentLines = new ArrayList<>();
-        if(lineItems!= null && lineItems.size() > 0) {
+        if(!CollectionUtils.isEmpty(lineItems)) {
             for(LineItem lineItem: lineItems) {
                 List<LineAdjustment> adjustments = lineItem.getAdjustments();
-                if(adjustments != null && adjustments.size() > 0) {
+                if(!CollectionUtils.isEmpty(adjustments)) {
                     for(LineAdjustment adjustment: adjustments) {
                         if(adjustmentMap.containsKey(adjustment.getType())) {
                             //update the amount for existing adjustment record
@@ -112,7 +112,7 @@ public abstract class KlarnaPaymentMappingService {
             }
         }
 
-        return adjustmentLines.size() > 0 ? adjustmentLines : null;
+        return adjustmentLines;
     }
 
     private static void setVoucherInfo(List<LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
