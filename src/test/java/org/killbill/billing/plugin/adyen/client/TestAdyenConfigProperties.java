@@ -24,6 +24,8 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
+import static org.killbill.billing.plugin.adyen.client.AdyenConfigProperties.MISSING_API_KEY;
+
 public class TestAdyenConfigProperties {
 
     @Test(groups = "fast")
@@ -238,13 +240,13 @@ public class TestAdyenConfigProperties {
         Assert.assertEquals(adyenConfigProperties.getCheckoutUrl(), "https://pal-test.adyen.com");
         Assert.assertEquals(adyenConfigProperties.getApiKey("UK"), "API_KEY_UK");
         Assert.assertEquals(adyenConfigProperties.getApiKey("DE"), "API_KEY_DE");
-        Assert.assertEquals(adyenConfigProperties.getApiKey("JP"), "API_KEY_NOT_FOUND");
-        Assert.assertEquals(adyenConfigProperties.getApiKey("NL"), "API_KEY_NOT_FOUND");
-        Assert.assertEquals(adyenConfigProperties.getApiKey(""), "API_KEY_NOT_FOUND");
+        Assert.assertEquals(adyenConfigProperties.getApiKey("JP"), MISSING_API_KEY);
+        Assert.assertEquals(adyenConfigProperties.getApiKey("NL"), MISSING_API_KEY);
+        Assert.assertEquals(adyenConfigProperties.getApiKey(""), MISSING_API_KEY);
 
         final AdyenConfigProperties adyenConfigWithoutKey = new AdyenConfigProperties(new Properties());
         Assert.assertEquals(adyenConfigWithoutKey.getEnvironment(), "TEST");
-        Assert.assertEquals(adyenConfigWithoutKey.getApiKey("UK"), "API_KEY_NOT_FOUND");
+        Assert.assertEquals(adyenConfigWithoutKey.getApiKey("UK"), MISSING_API_KEY);
         Assert.assertNull(adyenConfigWithoutKey.getCheckoutUrl());
     }
 }

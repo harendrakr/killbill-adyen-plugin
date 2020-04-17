@@ -26,12 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
-
 import javax.annotation.Nullable;
-
+import org.apache.cxf.common.util.StringUtils;
 import org.joda.time.Period;
-import org.jooq.tools.StringUtils;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +60,7 @@ public class AdyenConfigProperties {
     private static final String KEY_VALUE_DELIMITER = "#";
     private static final String DEFAULT_CONNECTION_TIMEOUT = "30000";
     private static final String DEFAULT_READ_TIMEOUT = "60000";
+    public static final String MISSING_API_KEY = "API_KEY_NOT_FOUND";
 
     private final Map<String, String> paymentProcessorAccountIdToMerchantAccountMap = new LinkedHashMap<>();
     private final Map<String, String> countryToMerchantAccountMap = new LinkedHashMap<String, String>();
@@ -530,6 +528,6 @@ public class AdyenConfigProperties {
 
     public String getApiKey(final String countryCode) {
         final String apiKey = countryToApiKeyMap.get(countryCode);
-        return StringUtils.isEmpty(apiKey) ? "API_KEY_NOT_FOUND" : apiKey;
+        return StringUtils.isEmpty(apiKey) ? MISSING_API_KEY : apiKey;
     }
 }
