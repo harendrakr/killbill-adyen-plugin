@@ -75,8 +75,8 @@ public class AdyenConfigProperties {
     private final Map<String, String> regionToDirectoryUrlMap = new LinkedHashMap<String, String>();
     private final List<String> sensitivePropertyKeys = new ArrayList<>();
     private final List<String> persistablePluginProperties = new ArrayList<>();
-    private final List<String> checkoutApiCountries = new ArrayList<>();
     private final Map<String, String> countryToApiKeyMap = new LinkedHashMap<String, String>();
+    private final Map<String, String> countryToLiveUrlMap = new LinkedHashMap<String, String>();
 
     private final String paymentProcessorAccountIdToMerchantAccount;
     private final String merchantAccounts;
@@ -105,7 +105,6 @@ public class AdyenConfigProperties {
     private final String rbacUsername;
     private final String rbacPassword;
     private final String environment;
-    private final String checkoutUrl;
 
     private final Period pendingPaymentExpirationPeriod;
 
@@ -229,17 +228,26 @@ public class AdyenConfigProperties {
         this.rbacPassword = properties.getProperty(PROPERTY_PREFIX + "rbacPassword");
 
         this.environment = properties.getProperty(CHECKOUT_PREFIX + "environment", "TEST");
-        this.checkoutUrl = properties.getProperty(CHECKOUT_PREFIX + "urlPrefix");
-        readCheckoutApiKeyConfig(properties);
+        readCheckoutApiConfiguration(properties);
     }
 
-    private void readCheckoutApiKeyConfig(final Properties properties) {
+    private void readCheckoutApiConfiguration(final Properties properties) {
+        //countryToLiveUrlMap
+        final List<String> checkoutApiCountries = new ArrayList<>();
         readConfigurationValuesToList(properties.getProperty(CHECKOUT_PREFIX + "country"), checkoutApiCountries);
         for (final String countryCode: checkoutApiCountries) {
+            //read API keys
             final String apiKeyPrefix = CHECKOUT_PREFIX + "apiKey." + countryCode.toUpperCase();
             final String apiKeyValue = properties.getProperty(apiKeyPrefix);
             if(!StringUtils.isEmpty(apiKeyValue)) {
                 countryToApiKeyMap.put(countryCode, apiKeyValue);
+            }
+
+            //read API live url
+            final String apiUrlPrefix = CHECKOUT_PREFIX + "liveUrl." + countryCode.toUpperCase();
+            final String apiUrlValue = properties.getProperty(apiUrlPrefix);
+            if(!StringUtils.isEmpty(apiUrlValue)) {
+                countryToLiveUrlMap.put(countryCode, apiUrlValue);
             }
         }
     }
@@ -524,10 +532,12 @@ public class AdyenConfigProperties {
 
     public String getEnvironment() { return environment; }
 
-    public String getCheckoutUrl() { return checkoutUrl; }
-
     public String getApiKey(final String countryCode) {
         final String apiKey = countryToApiKeyMap.get(countryCode);
         return StringUtils.isEmpty(apiKey) ? MISSING_API_KEY : apiKey;
+    }
+
+    public String getLiveUrl(final String countryCode) {
+        return countryToLiveUrlMap.get(countryCode);
     }
 }

@@ -230,23 +230,31 @@ public class TestAdyenConfigProperties {
     public void testConfigKeysForKlarna() throws Exception {
         final Properties properties = new Properties();
         properties.put("org.killbill.billing.plugin.adyen.checkout.environment", "DEV");
-        properties.put("org.killbill.billing.plugin.adyen.checkout.urlPrefix", "https://pal-test.adyen.com");
         properties.put("org.killbill.billing.plugin.adyen.checkout.country", "UK|NL|DE");
         properties.put("org.killbill.billing.plugin.adyen.checkout.apiKey.UK", "API_KEY_UK");
         properties.put("org.killbill.billing.plugin.adyen.checkout.apiKey.DE", "API_KEY_DE");
+        properties.put("org.killbill.billing.plugin.adyen.checkout.liveUrl.UK", "https://uk-live.adyen.com");
+        properties.put("org.killbill.billing.plugin.adyen.checkout.liveUrl.DE", "https://de-live.adyen.com");
         final AdyenConfigProperties adyenConfigProperties = new AdyenConfigProperties(properties);
 
+        //environment config
         Assert.assertEquals(adyenConfigProperties.getEnvironment(), "DEV");
-        Assert.assertEquals(adyenConfigProperties.getCheckoutUrl(), "https://pal-test.adyen.com");
+
+        //live url config
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("UK"), "https://uk-live.adyen.com");
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("DE"), "https://de-live.adyen.com");
+        Assert.assertNull(adyenConfigProperties.getLiveUrl("AU"));
+        Assert.assertNull(adyenConfigProperties.getLiveUrl(""));
+
+        //api key config
         Assert.assertEquals(adyenConfigProperties.getApiKey("UK"), "API_KEY_UK");
         Assert.assertEquals(adyenConfigProperties.getApiKey("DE"), "API_KEY_DE");
-        Assert.assertEquals(adyenConfigProperties.getApiKey("JP"), MISSING_API_KEY);
-        Assert.assertEquals(adyenConfigProperties.getApiKey("NL"), MISSING_API_KEY);
+        Assert.assertEquals(adyenConfigProperties.getApiKey("AU"), MISSING_API_KEY);
         Assert.assertEquals(adyenConfigProperties.getApiKey(""), MISSING_API_KEY);
 
         final AdyenConfigProperties adyenConfigWithoutKey = new AdyenConfigProperties(new Properties());
         Assert.assertEquals(adyenConfigWithoutKey.getEnvironment(), "TEST");
         Assert.assertEquals(adyenConfigWithoutKey.getApiKey("UK"), MISSING_API_KEY);
-        Assert.assertNull(adyenConfigWithoutKey.getCheckoutUrl());
+        Assert.assertNull(adyenConfigWithoutKey.getLiveUrl("UK"));
     }
 }

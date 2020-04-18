@@ -18,7 +18,6 @@ import java.io.IOException;
 import static org.killbill.billing.plugin.adyen.client.AdyenConfigProperties.MISSING_API_KEY;
 import static org.killbill.billing.plugin.adyen.client.payment.service.AdyenCallErrorStatus.*;
 
-
 public class AdyenCheckoutApiClient {
     final Checkout checkoutApi;
     private static final Logger logger = LoggerFactory.getLogger(AdyenCheckoutApiClient.class);
@@ -38,9 +37,9 @@ public class AdyenCheckoutApiClient {
 
         //url prefix is used only for live (production) environment
         //Adyen TEST environment, ignores url prefix parameter
-        final String liveUrlPrefix = adyenConfigProperties.getCheckoutUrl();
+        final String liveUrlPrefix = adyenConfigProperties.getLiveUrl(countryCode);
 
-        logger.info("Checkout client config: environment={}, api_key={}, url_prefix={}",
+        logger.info("Checkout client config: environment={}, apiKey={}, liveUrl={}",
                     environment.toString(), apiKeyConfigLog, liveUrlPrefix);
 
         final Client client = new Client(apiKey, environment, liveUrlPrefix);
