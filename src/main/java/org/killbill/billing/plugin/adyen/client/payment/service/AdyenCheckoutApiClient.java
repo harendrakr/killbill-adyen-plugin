@@ -83,7 +83,7 @@ public class AdyenCheckoutApiClient {
             responseBuilder.append("No response received");
         }
         final String responseLog = responseBuilder.toString();
-        logger.info("Checkout API response result={}:\nbody={}\n", result, responseLog);
+        logger.info("Checkout API response result={}:\nbody={}", result, responseLog);
     }
 
     public AdyenCallResult<PaymentsResponse> paymentDetails(PaymentsDetailsRequest request) {
@@ -102,7 +102,7 @@ public class AdyenCheckoutApiClient {
 
     private <REQ, RES> AdyenCallResult<RES> callApi(REQ request, ApiRequest<REQ, RES> apiRequest) {
         final String logRequest = jsonObject(request);
-        logger.info("Checkout API request:\npayload={}\n", logRequest);
+        logger.info("Checkout API request:\npayload={}", logRequest);
 
         final long startTime = System.currentTimeMillis();
         try {
@@ -112,11 +112,11 @@ public class AdyenCheckoutApiClient {
             return new SuccessfulAdyenCall<RES>(result, duration);
         } catch (ApiException ex) {
             final long duration = System.currentTimeMillis() - startTime;
-            logger.error("Checkout API duration={}exception: \n{}\n", ex.toString());
+            logger.error("Checkout API duration={}exception: \n{}", ex.toString());
             return handleException(ex, duration);
         } catch (IOException ex) {
             final long duration = System.currentTimeMillis() - startTime;
-            logger.error("Checkout API exception: \n{}\n", ex.toString());
+            logger.error("Checkout API exception: \n{}", ex.toString());
             return handleException(ex, duration);
         }
     }
