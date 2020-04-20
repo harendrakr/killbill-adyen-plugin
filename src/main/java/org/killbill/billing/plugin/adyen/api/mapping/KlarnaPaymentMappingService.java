@@ -1,6 +1,10 @@
 package org.killbill.billing.plugin.adyen.api.mapping;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.killbill.billing.payment.api.PluginProperty;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.Account;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper.LineAdjustment;
 import org.apache.cxf.common.util.CollectionUtils;
 import org.killbill.billing.payment.api.PluginProperty;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.Account;
@@ -17,7 +21,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.killbill.billing.plugin.adyen.api.AdyenPaymentPluginApi.*;
 
@@ -40,9 +47,14 @@ public abstract class KlarnaPaymentMappingService {
 
         List<PropertyMapper.LineItem> lineItems = extractLineItems(properties);
         if(!CollectionUtils.isEmpty(lineItems)) {
-            builder.setItems(lineItems);
             setVoucherInfo(lineItems, builder);
             setSellerInfo(lineItems, builder);
+            List<LineItem> adjustments = getLineAdjustments(lineItems);
+            if(adjustments != null) {
+                lineItems.addAll(adjustments);
+            }
+
+            builder.setItems(lineItems);
         }
 
         return builder.build();
@@ -54,7 +66,7 @@ public abstract class KlarnaPaymentMappingService {
         if(!StringUtils.isEmpty(itemsJson)) {
             try {
                 PropertyMapper.LineItem[] items = mapper.readValue(itemsJson, PropertyMapper.LineItem[].class);
-                lineItems = Arrays.asList(items);
+                lineItems = new ArrayList<>(Arrays.asList(items));
             } catch (IOException e) {
                 logger.error("Failed to parse lineItems, error={}\n{}", e.getMessage(), e.getStackTrace());
             }
@@ -63,6 +75,46 @@ public abstract class KlarnaPaymentMappingService {
         }
 
         return lineItems;
+    }
+
+    private static List<LineItem> getLineAdjustments(final List<LineItem> lineItems) {
+        final Map<String, LineAdjustment> adjustmentMap = new HashMap<>();
+        final List<LineItem> adjustmentLines = new ArrayList<>();
+        if(lineItems!= null && lineItems.size() > 0) {
+            for(LineItem lineItem: lineItems) {
+                List<LineAdjustment> adjustments = lineItem.getAdjustments();
+                if(adjustments != null && adjustments.size() > 0) {
+                    for(LineAdjustment adjustment: adjustments) {
+                        if(adjustmentMap.containsKey(adjustment.getType())) {
+                            //update the amount for existing adjustment record
+                            LineAdjustment existingRecord = adjustmentMap.get(adjustment.getType());
+                            Long newAmount = adjustment.getAmount() + existingRecord.getAmount();
+                            existingRecord.setAmount(newAmount);
+                        } else {
+                            //add new adjustment record in map
+                            LineAdjustment newRecord = new LineAdjustment(adjustment.getAmount(),
+                                                                          adjustment.getType(),
+                                                                          adjustment.getDescription());
+                            adjustmentMap.put(adjustment.getType(), newRecord);
+                        }
+                    }
+                }
+            }
+
+            // add the adjustments lines as line items
+            final Collection<LineAdjustment> finalAdjustments = adjustmentMap.values();
+            for(LineAdjustment adjustment: finalAdjustments) {
+                final LineItem item = new LineItem();
+                item.setQuantity(1L);
+                item.setInventoryType("adjustment");
+                item.setId(adjustment.getType());
+                item.setAmountIncludingTax(adjustment.getAmount());
+                item.setDescription(adjustment.getDescription());
+                adjustmentLines.add(item);
+            }
+        }
+
+        return adjustmentLines.size() > 0 ? adjustmentLines : null;
     }
 
     private static void setVoucherInfo(List<PropertyMapper.LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
