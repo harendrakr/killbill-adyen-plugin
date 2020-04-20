@@ -1,19 +1,21 @@
 package org.killbill.billing.plugin.adyen.api.mapping;
 
 import com.google.common.collect.ImmutableMap;
+
+import org.jooq.tools.StringUtils;
 import org.killbill.billing.payment.api.PluginProperty;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.PaymentType;
 import org.killbill.billing.plugin.adyen.client.model.UserData;
 import org.killbill.billing.plugin.adyen.client.model.paymentinfo.KlarnaPaymentInfo;
 import org.killbill.billing.plugin.api.PluginProperties;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.killbill.billing.plugin.adyen.api.AdyenPaymentPluginApi.*;
 
 public abstract class TestKlarnaPaymentInfoBase {
     private final UserData userData;
-
     protected final String shopperEmail = "testing@gmail.com";
     protected final String shopperReference = UUID.randomUUID().toString();
     protected final Locale shopperLocale = Locale.UK;
@@ -37,7 +39,7 @@ public abstract class TestKlarnaPaymentInfoBase {
         return userData;
     }
 
-    protected Iterable<PluginProperty> propertiesForKlarnaPayment(
+    protected Iterable<PluginProperty> addKlarnaPaymentData(
             final String customerAccount,
             final String shippingAddress,
             final String lineItems) {
@@ -58,10 +60,13 @@ public abstract class TestKlarnaPaymentInfoBase {
                                                final String countryCode,
                                                final String customerAccount,
                                                final String shippingAddress,
-                                               final String lineItems) {
-        Iterable<PluginProperty> klarnaProperties = propertiesForKlarnaPayment(customerAccount, shippingAddress, lineItems);
+                                               final String lineItems,
+                                               Iterable<PluginProperty> properties) {
+        Iterable<PluginProperty> klarnaProperties = addKlarnaPaymentData(customerAccount, shippingAddress, lineItems);
+        Iterable<PluginProperty> allProperties = PluginProperties.merge(klarnaProperties, properties);
+
         final KlarnaPaymentInfo paymentInfo = (KlarnaPaymentInfo) KlarnaPaymentMappingService
-                .toPaymentInfo(merchantAccount, countryCode, klarnaProperties);
+                .toPaymentInfo(merchantAccount, countryCode, allProperties);
         return paymentInfo;
     }
 }

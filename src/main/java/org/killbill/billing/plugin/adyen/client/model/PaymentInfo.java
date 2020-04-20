@@ -85,6 +85,7 @@ public class PaymentInfo {
 
     // Klarna payment
     private String paymentType;
+    private Map<String, String> authResponseData;
 
     public boolean isKlarnaPayment() {
         return isKlarnaPayment(this.paymentType);
@@ -92,6 +93,13 @@ public class PaymentInfo {
 
     public static boolean isKlarnaPayment(String paymentType) {
         return !StringUtils.isEmpty(paymentType) && paymentType.equals(KlarnaPaymentMappingService.KLARNA_PAYMENT_TYPE);
+    }
+
+    protected void updateAuthResponse() {}
+    public Map<String, String> getAuthResponseData() { return authResponseData; }
+    public void setAuthResponseData(Map<String, String> authResponseData) {
+        this.authResponseData = authResponseData;
+        updateAuthResponse();
     }
 
     public String getPaymentType() {
