@@ -31,12 +31,14 @@ import com.adyen.model.checkout.PaymentsResponse;
 import com.adyen.service.exception.ApiException;
 import org.killbill.adyen.payment.*;
 import org.killbill.billing.plugin.adyen.api.AdyenPaymentPluginApi;
+import org.killbill.billing.plugin.adyen.client.AdyenConfigProperties;
 import org.killbill.billing.plugin.adyen.client.model.PaymentData;
 import org.killbill.billing.plugin.adyen.client.model.PaymentModificationResponse;
 import org.killbill.billing.plugin.adyen.client.model.PaymentServiceProviderResult;
 import org.killbill.billing.plugin.adyen.client.model.PurchaseResult;
 import org.killbill.billing.plugin.adyen.client.model.SplitSettlementData;
 import org.killbill.billing.plugin.adyen.client.model.UserData;
+import org.killbill.billing.plugin.adyen.client.model.paymentinfo.KlarnaPaymentInfo;
 import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutPaymentsResult;
 import org.killbill.billing.plugin.adyen.client.payment.builder.AdyenRequestFactory;
 import org.slf4j.LoggerFactory;
@@ -53,15 +55,14 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
 
     private final AdyenRequestFactory adyenRequestFactory;
     private final AdyenPaymentRequestSender adyenPaymentRequestSender;
-    private final AdyenCheckoutApiClient adyenCheckoutApiClient;
+    private final AdyenConfigProperties adyenConfigProperties;
 
     public AdyenPaymentServiceProviderPort(final AdyenRequestFactory adyenRequestFactory,
                                            final AdyenPaymentRequestSender adyenPaymentRequestSender,
-                                           final AdyenCheckoutApiClient adyenCheckoutApiClient) {
+                                           final AdyenConfigProperties adyenConfigProperties) {
         this.adyenRequestFactory = adyenRequestFactory;
         this.adyenPaymentRequestSender = adyenPaymentRequestSender;
-        this.adyenCheckoutApiClient = adyenCheckoutApiClient;
-
+        this.adyenConfigProperties = adyenConfigProperties;
         this.logger = LoggerFactory.getLogger(AdyenPaymentServiceProviderPort.class);
     }
 
@@ -159,15 +160,17 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
                                                  final String merchantAccount,
                                                  final PaymentData paymentData,
                                                  final UserData userData) {
+        final String countryCode = ((KlarnaPaymentInfo) paymentData.getPaymentInfo()).getCountryCode();
+        final AdyenCheckoutApiClient checkoutClient = getAdyenCheckoutClient(countryCode);
         final AdyenCallResult<PaymentsResponse> adyenCallResult;
         if(authComplete) {
             //completing auth session
             PaymentsDetailsRequest detailsRequest = adyenRequestFactory.completeKlarnaPayment(merchantAccount, paymentData, userData);
-            adyenCallResult = adyenCheckoutApiClient.paymentDetails(detailsRequest);
+            adyenCallResult = checkoutClient.paymentDetails(detailsRequest);
         } else {
             //starting auth session
             PaymentsRequest klarnaRequest = adyenRequestFactory.createKlarnaPayment(merchantAccount, paymentData, userData);
-            adyenCallResult = adyenCheckoutApiClient.createPayment(klarnaRequest);
+            adyenCallResult = checkoutClient.createPayment(klarnaRequest);
         }
 
         if (!adyenCallResult.receivedWellFormedResponse()) {
@@ -175,6 +178,11 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
         }
 
         return handleKlarnaAuthoriseResponse(adyenCallResult, merchantAccount);
+    }
+
+    private AdyenCheckoutApiClient getAdyenCheckoutClient(final String countryCode) {
+        final AdyenCheckoutApiClient adyenCheckoutApiClient = new AdyenCheckoutApiClient(adyenConfigProperties, countryCode);
+        return adyenCheckoutApiClient;
     }
 
     private PurchaseResult handleKlarnaAuthoriseError(AdyenCallResult<PaymentsResponse> callResult, final PaymentData paymentData) {
