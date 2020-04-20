@@ -22,7 +22,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import com.adyen.model.ApiError;
+import com.adyen.model.checkout.CheckoutPaymentsAction;
+import com.adyen.model.checkout.InputDetail;
+import com.adyen.model.checkout.PaymentsDetailsRequest;
+import com.adyen.model.checkout.PaymentsRequest;
+import com.adyen.model.checkout.PaymentsResponse;
+import com.adyen.service.exception.ApiException;
 import org.killbill.adyen.payment.*;
 import org.killbill.billing.plugin.adyen.api.AdyenPaymentPluginApi;
 import org.killbill.billing.plugin.adyen.client.model.PaymentData;
@@ -31,6 +37,9 @@ import org.killbill.billing.plugin.adyen.client.model.PaymentServiceProviderResu
 import org.killbill.billing.plugin.adyen.client.model.PurchaseResult;
 import org.killbill.billing.plugin.adyen.client.model.SplitSettlementData;
 import org.killbill.billing.plugin.adyen.client.model.UserData;
+import org.killbill.billing.plugin.adyen.client.model.paymentinfo.KlarnaPaymentInfo;
+import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutClientFactory;
+import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutPaymentsResult;
 import org.killbill.billing.plugin.adyen.client.payment.builder.AdyenRequestFactory;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +55,14 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
 
     private final AdyenRequestFactory adyenRequestFactory;
     private final AdyenPaymentRequestSender adyenPaymentRequestSender;
+    private final CheckoutClientFactory checkoutClientFactory;
 
     public AdyenPaymentServiceProviderPort(final AdyenRequestFactory adyenRequestFactory,
-                                           final AdyenPaymentRequestSender adyenPaymentRequestSender) {
+                                           final AdyenPaymentRequestSender adyenPaymentRequestSender,
+                                           final CheckoutClientFactory checkoutClientFactory) {
         this.adyenRequestFactory = adyenRequestFactory;
         this.adyenPaymentRequestSender = adyenPaymentRequestSender;
-
+        this.checkoutClientFactory = checkoutClientFactory;
         this.logger = LoggerFactory.getLogger(AdyenPaymentServiceProviderPort.class);
     }
 
@@ -143,6 +154,99 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
 
         logTransaction(operation, userData, merchantAccount, paymentData, purchaseResult, adyenCallResult);
         return purchaseResult;
+    }
+
+    public PurchaseResult authoriseKlarnaPayment(final boolean authComplete,
+                                                 final String merchantAccount,
+                                                 final PaymentData paymentData,
+                                                 final UserData userData) {
+        final String countryCode = ((KlarnaPaymentInfo) paymentData.getPaymentInfo()).getCountryCode();
+        final AdyenCheckoutApiClient checkoutClient = checkoutClientFactory.getCheckoutClient(countryCode);
+        final AdyenCallResult<PaymentsResponse> adyenCallResult;
+        if(authComplete) {
+            //completing auth session
+            PaymentsDetailsRequest detailsRequest = adyenRequestFactory.completeKlarnaPayment(merchantAccount, paymentData, userData);
+            adyenCallResult = checkoutClient.paymentDetails(detailsRequest);
+        } else {
+            //starting auth session
+            PaymentsRequest klarnaRequest = adyenRequestFactory.createKlarnaPayment(merchantAccount, paymentData, userData);
+            adyenCallResult = checkoutClient.createPayment(klarnaRequest);
+        }
+
+        if (!adyenCallResult.receivedWellFormedResponse()) {
+            return handleKlarnaAuthoriseError(adyenCallResult, paymentData);
+        }
+
+        return handleKlarnaAuthoriseResponse(adyenCallResult, paymentData, merchantAccount);
+    }
+
+    private PurchaseResult handleKlarnaAuthoriseError(AdyenCallResult<PaymentsResponse> callResult, final PaymentData paymentData) {
+        FailedCheckoutApiCall<PaymentsResponse> errorResult = (FailedCheckoutApiCall<PaymentsResponse>) callResult;
+        final String paymentTransactionId = paymentData.getPaymentTransactionExternalKey();
+
+        if (errorResult.getApiException() != null) {
+            ApiException ex = errorResult.getApiException();
+            ApiError apiError = ex.getError();
+            return new PurchaseResult(PaymentServiceProviderResult.ERROR,
+                                      null,
+                                      apiError.getPspReference(),
+                                      apiError.getMessage(),
+                                      null,
+                                      paymentTransactionId,
+                                      null);
+        } else {
+            IOException ex = errorResult.getIOException();
+            return new PurchaseResult(PaymentServiceProviderResult.ERROR,
+                                      null,
+                                      null,
+                                      ex.getMessage(),
+                                      null,
+                                      paymentTransactionId,
+                                      null);
+        }
+    }
+
+    private PurchaseResult handleKlarnaAuthoriseResponse(AdyenCallResult<PaymentsResponse> adyenCallResult,
+                                                         final PaymentData paymentData,
+                                                         final String merchantAccount) {
+        final PaymentsResponse response = adyenCallResult.getResult().get();
+        final KlarnaPaymentInfo paymentInfo = (KlarnaPaymentInfo)paymentData.getPaymentInfo();
+
+        CheckoutPaymentsResult result = new CheckoutPaymentsResult();
+        PaymentsResponse.ResultCodeEnum resultCode = response.getResultCode();
+        result.setResultCode(resultCode.toString());
+        result.setPspReference(response.getPspReference());
+        result.setMerchantAccount(merchantAccount);
+        result.setPaymentInfo(paymentInfo);
+        result.setPaymentExternalKey(paymentData.getPaymentTransactionExternalKey());
+
+        if(resultCode == PaymentsResponse.ResultCodeEnum.REDIRECTSHOPPER) {
+            logger.info("Klarna payment response: RedirectShopper");
+            CheckoutPaymentsAction actionData = response.getAction();
+            if(actionData.getType() == CheckoutPaymentsAction.CheckoutActionType.REDIRECT) {
+                result.setFormUrl(actionData.getUrl());
+                result.setFormMethod(actionData.getMethod());
+                result.setPaymentMethod(actionData.getPaymentMethodType());
+                result.setPaymentData(actionData.getPaymentData());
+
+                if(actionData.getMethod() == "POST") {
+                    result.setFormParameter(actionData.getData());
+                }
+            }
+
+            List<InputDetail> keyDetails = response.getDetails();
+            if(keyDetails != null) {
+                Map<String, String> keyTypes = new HashMap<>();
+                for (InputDetail key: keyDetails) {
+                    keyTypes.put(key.getKey(), key.getType());
+                }
+                result.setAuthResultKeys(keyTypes);
+            }
+        } else if(resultCode == PaymentsResponse.ResultCodeEnum.AUTHORISED) {
+            logger.info("Klarna payment response: Authorised");
+        }
+
+        return result.toPurchaseResult();
     }
 
     private Map<String, String> getAdditionalData(final PaymentResult result, final String merchantAccount) {

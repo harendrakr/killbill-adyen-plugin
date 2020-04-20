@@ -195,6 +195,14 @@ public class AdyenPaymentPluginApi extends PluginPaymentPluginApi<AdyenResponses
     public static final String PROPERTY_CUSTOMER_ID = "customerId";
     public static final String PROPERTY_EMAIL = "email";
 
+    // Klarna properties
+    public static final String PROPERTY_PAYMENT_TYPE = "paymentType";
+    public static final String PROPERTY_RETURN_URL = "returnUrl";
+    public static final String PROPERTY_LINE_ITEMS = "lineItems";
+    public static final String PROPERTY_ORDER_REFERENCE = "orderReference";
+    public static final String PROPERTY_CUSTOMER_ACCOUNT ="customerAccount";
+    public static final String PROPERTY_SHIPPING_ADDRESS = "shippingAddress";
+
     // HPP
     public static final String PROPERTY_CREATE_PENDING_PAYMENT = "createPendingPayment";
     public static final String PROPERTY_AUTH_MODE = "authMode";
@@ -808,6 +816,8 @@ public class AdyenPaymentPluginApi extends PluginPaymentPluginApi<AdyenResponses
                                              public PurchaseResult execute(final String merchantAccount, final PaymentData paymentData, final UserData userData, final SplitSettlementData splitSettlementData, final Map<String, String> additionalData) {
                                                  final AdyenPaymentServiceProviderPort adyenPort = adyenConfigurationHandler.getConfigurable(context.getTenantId());
                                                  final AdyenResponsesRecord existingAuth = previousAdyenResponseRecord(kbPaymentId, kbTransactionId.toString(), context);
+                                                 boolean authoriseKlarnaPayment = paymentData.getPaymentInfo().isKlarnaPayment();
+
                                                  if (existingAuth != null) {
                                                      // We are completing a 3D-S payment
                                                      final String originalMerchantAccount = getMerchantAccountFromRecord(existingAuth);
@@ -832,6 +842,11 @@ public class AdyenPaymentPluginApi extends PluginPaymentPluginApi<AdyenResponses
                                                                  splitSettlementData,
                                                                  additionalData
                                                          );
+                                                     } if(authoriseKlarnaPayment) {
+                                                         Map<String, String> responseData = AdyenDao.fromAdditionalData(existingAuth.getAdditionalData());
+                                                         paymentData.getPaymentInfo().setAuthResponseData(responseData);
+                                                         final String merchantAccountName = originalMerchantAccount != null ? originalMerchantAccount : merchantAccount;
+                                                         return adyenPort.authoriseKlarnaPayment(true, merchantAccountName, paymentData, userData);
                                                      } else {
                                                          return adyenPort.authorize3DSecure(
                                                                  originalMerchantAccount != null ? originalMerchantAccount : merchantAccount,
@@ -846,7 +861,11 @@ public class AdyenPaymentPluginApi extends PluginPaymentPluginApi<AdyenResponses
                                                      if (transactionType == TransactionType.CREDIT) {
                                                          return adyenPort.credit(merchantAccount, paymentData, userData, splitSettlementData, additionalData);
                                                      } else {
-                                                         return adyenPort.authorise(merchantAccount, paymentData, userData, splitSettlementData, additionalData);
+                                                         if(authoriseKlarnaPayment) {
+                                                             return adyenPort.authoriseKlarnaPayment(false, merchantAccount, paymentData, userData);
+                                                         } else {
+                                                             return adyenPort.authorise(merchantAccount, paymentData, userData, splitSettlementData, additionalData);
+                                                         }
                                                      }
                                                  }
                                              }

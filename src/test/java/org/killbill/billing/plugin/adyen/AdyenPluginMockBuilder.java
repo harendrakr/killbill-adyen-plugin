@@ -39,6 +39,7 @@ import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentRequ
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServiceProviderHostedPaymentPagePort;
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServiceProviderPort;
 import org.killbill.billing.plugin.adyen.client.payment.service.Signer;
+import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutClientFactory;
 import org.killbill.billing.plugin.adyen.client.recurring.AdyenRecurringClient;
 import org.killbill.billing.plugin.adyen.core.AdyenActivator;
 import org.killbill.billing.plugin.adyen.core.AdyenConfigPropertiesConfigurationHandler;
@@ -103,14 +104,14 @@ public class AdyenPluginMockBuilder {
 
         final Signer signer = new Signer();
         final AdyenRequestFactory adyenRequestFactory = new AdyenRequestFactory(paymentInfoConverterManagement, adyenConfigProperties, signer);
+        final CheckoutClientFactory checkoutClientFactory = new CheckoutClientFactory(adyenConfigProperties);
 
         final LoggingInInterceptor loggingInInterceptor = new LoggingInInterceptor();
         final LoggingOutInterceptor loggingOutInterceptor = new LoggingOutInterceptor();
         final HttpHeaderInterceptor httpHeaderInterceptor = new HttpHeaderInterceptor();
         final PaymentPortRegistry adyenPaymentPortRegistry = new AdyenPaymentPortRegistry(adyenConfigProperties, loggingInInterceptor, loggingOutInterceptor, httpHeaderInterceptor);
         final AdyenPaymentRequestSender adyenPaymentRequestSender = new AdyenPaymentRequestSender(adyenPaymentPortRegistry);
-
-        final AdyenPaymentServiceProviderPort adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender);
+        final AdyenPaymentServiceProviderPort adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender, checkoutClientFactory);
         final AdyenPaymentServiceProviderHostedPaymentPagePort adyenPaymentServiceProviderHostedPaymentPagePort = new AdyenPaymentServiceProviderHostedPaymentPagePort(adyenConfigProperties, adyenRequestFactory, null);
         final AdyenRecurringClient adyenRecurringClient = new AdyenRecurringClient(adyenConfigProperties, loggingInInterceptor, loggingOutInterceptor, httpHeaderInterceptor);
 

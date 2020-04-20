@@ -17,12 +17,20 @@
 
 package org.killbill.billing.plugin.adyen.api;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.util.*;
 
+import com.adyen.enums.Environment;
+import com.adyen.model.Amount;
+import com.adyen.model.checkout.PaymentMethodsRequest;
+import com.adyen.model.checkout.PaymentMethodsResponse;
+import com.adyen.service.Checkout;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import org.joda.time.Period;
@@ -45,12 +53,15 @@ import org.killbill.billing.payment.plugin.api.PaymentPluginApiException;
 import org.killbill.billing.payment.plugin.api.PaymentPluginStatus;
 import org.killbill.billing.payment.plugin.api.PaymentTransactionInfoPlugin;
 import org.killbill.billing.plugin.TestUtils;
+import org.killbill.billing.plugin.adyen.api.mapping.KlarnaPaymentMappingService;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.PaymentType;
 import org.killbill.billing.plugin.adyen.dao.AdyenDao;
 import org.killbill.billing.plugin.adyen.dao.gen.tables.records.AdyenPaymentMethodsRecord;
 import org.killbill.billing.plugin.api.PluginProperties;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import com.adyen.Client;
 
 import com.ning.http.util.UTF8UrlEncoder;
 
@@ -234,6 +245,15 @@ public class TestAdyenPaymentPluginApi extends TestAdyenPaymentPluginApiBase {
             .put(AdyenPaymentPluginApi.PROPERTY_ACCEPT_HEADER, "application/json")
             .put(AdyenPaymentPluginApi.PROPERTY_TERM_URL, "dummy://url")
             .build());
+    private final Iterable<PluginProperty> propertiesWithKlarnaPayment = PluginProperties.buildPluginProperties(ImmutableMap.<String, String>builder()
+            .put(PROPERTY_PAYMENT_TYPE, KlarnaPaymentMappingService.KLARNA_PAYMENT_TYPE)
+            .put(PROPERTY_PAYMENT_METHOD, PaymentType.PAY_LATER.toString())
+            .put(PROPERTY_RETURN_URL, "https://www.company.com/callback")
+            .put(AdyenPaymentPluginApi.PROPERTY_USER_AGENT, "Java/1.8")
+            .put(AdyenPaymentPluginApi.PROPERTY_ACCEPT_HEADER, "application/json")
+            .build());
+
+
     private Map<String, String> propertiesForRecurring;
 
     @Override
@@ -1417,6 +1437,49 @@ public class TestAdyenPaymentPluginApi extends TestAdyenPaymentPluginApiBase {
         Assert.assertEquals(TransactionStatus.SUCCESS, refundPaymentTransaction.getTransactionStatus());
     }
 
+    @Test(groups = "integration")
+    public void testKlarnaPaymentRedirectShopper() throws Exception {
+        final Iterable<PluginProperty> klarnaPaymentProperties = addPaymentDetailsForKlarna(propertiesWithKlarnaPayment);
+        adyenPaymentPluginApi.addPaymentMethod(account.getId(), account.getPaymentMethodId(), adyenEmptyPaymentMethodPlugin(), true, klarnaPaymentProperties, context);
+        final Payment payment = TestUtils.buildPayment(account.getId(), account.getPaymentMethodId(), account.getCurrency(), killbillApi);
+        final PaymentTransaction authTransaction = TestUtils.buildPaymentTransaction(payment, TransactionType.AUTHORIZE, new BigDecimal("10"), account.getCurrency());
+
+        // Initiate payment authorisation
+        final PaymentTransactionInfoPlugin authorizeResult = adyenPaymentPluginApi.authorizePayment(
+                account.getId(),
+                payment.getId(),
+                authTransaction.getId(),
+                account.getPaymentMethodId(),
+                authTransaction.getAmount(),
+                authTransaction.getCurrency(),
+                propertiesWithKlarnaPayment,
+                context);
+        assertNull(authorizeResult.getGatewayErrorCode());
+        assertNull(authorizeResult.getGatewayError());
+        assertEquals(authorizeResult.getTransactionType(), TransactionType.AUTHORIZE);
+        assertEquals(authorizeResult.getStatus(), PaymentPluginStatus.PENDING);
+
+        final PaymentTransactionInfoPlugin paymentInfo = Iterables.getLast(adyenPaymentPluginApi.getPaymentInfo(payment.getAccountId(), payment.getId(), null, context));
+        final List<PluginProperty> pluginProperties = paymentInfo.getProperties();
+        assertNotNull(PluginProperties.findPluginPropertyValue("formUrl", pluginProperties));
+        assertNotNull(PluginProperties.findPluginPropertyValue("resultKeys", pluginProperties));
+        assertNotNull(PluginProperties.findPluginPropertyValue("paymentData", pluginProperties));
+        assertEquals(PluginProperties.findPluginPropertyValue("formMethod", pluginProperties), "GET");
+        assertEquals(PluginProperties.findPluginPropertyValue("paymentMethod", pluginProperties), PaymentType.PAY_LATER.toString());
+        assertEquals(PluginProperties.findPluginPropertyValue("adyenResultCode", pluginProperties), "RedirectShopper");
+    }
+
+    private Iterable<PluginProperty> addPaymentDetailsForKlarna(Iterable<PluginProperty> klarnaProperties) {
+        String customerAccount= "{\"accountId\":\"ACCOUNT_ID009\",\"registrationDate\":\"2019-08-08T09:16:15Z\",\"lastModifiedDate\":\"2019-08-08T09:50:15Z\"}";
+        String lineItems = "[{\"id\":\"Item_ID090909\",\"quantity\":\"1\",\"taxAmount\":\"69\",\"taxPercentage\":\"2100\",\"amountExcludingTax\":\"331\",\"amountIncludingTax\":\"400\",\"description\":\"Shoes\",\"productName\":\"School Shoes\",\"productCategory\":\"Shoes\",\"merchantId\":\"MERCHANT_ID0909\",\"merchantName\":\"Local Shopee\",\"inventoryType\":\"goods\"},{\"id\":\"Item_ID090910\",\"quantity\":\"2\",\"taxAmount\":\"52\",\"taxPercentage\":\"2100\",\"amountExcludingTax\":\"248\",\"amountIncludingTax\":\"300\",\"description\":\"Socks\",\"productName\":\"School Shoes\",\"productCategory\":\"Shoes\",\"merchantId\":\"MERCHANT_ID0909\",\"merchantName\":\"Local Shopee\",\"inventoryType\":\"goods\"}]";
+        Iterable<PluginProperty> paymentDetails = PluginProperties.buildPluginProperties(ImmutableMap.<String, String>builder()
+                .put(AdyenPaymentPluginApi.PROPERTY_COUNTRY, "DE")
+                .put(PROPERTY_ORDER_REFERENCE, UUID.randomUUID().toString())
+                .put(PROPERTY_CUSTOMER_ACCOUNT, customerAccount)
+                .put(PROPERTY_LINE_ITEMS, lineItems)
+                .build());
+        return PluginProperties.merge(klarnaProperties, paymentDetails);
+    }
     private String toJsonAndEncode(Map<String, String> data) throws JsonProcessingException {
         String json = new ObjectMapper().writeValueAsString(data);
         return Base64.getEncoder().encodeToString(json.getBytes(Charsets.UTF_8));
@@ -1724,3 +1787,5 @@ public class TestAdyenPaymentPluginApi extends TestAdyenPaymentPluginApiBase {
         PaymentTransactionInfoPlugin execute(Payment payment, PaymentTransaction paymentTransaction, Iterable<PluginProperty> pluginProperties) throws PaymentPluginApiException;
     }
 }
+
+

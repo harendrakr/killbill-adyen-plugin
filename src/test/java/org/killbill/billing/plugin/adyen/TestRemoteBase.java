@@ -38,6 +38,7 @@ import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServ
 import org.killbill.billing.plugin.adyen.client.payment.service.AdyenPaymentServiceProviderPort;
 import org.killbill.billing.plugin.adyen.client.payment.service.DirectoryClient;
 import org.killbill.billing.plugin.adyen.client.payment.service.Signer;
+import org.killbill.billing.plugin.adyen.client.payment.service.checkout.CheckoutClientFactory;
 import org.killbill.billing.plugin.adyen.client.recurring.AdyenRecurringClient;
 import org.killbill.billing.plugin.adyen.core.AdyenActivator;
 import org.killbill.billing.plugin.adyen.core.AdyenConfigPropertiesConfigurationHandler;
@@ -113,14 +114,14 @@ public abstract class TestRemoteBase {
 
         final Signer signer = new Signer();
         final AdyenRequestFactory adyenRequestFactory = new AdyenRequestFactory(paymentInfoConverterManagement, adyenConfigProperties, signer);
+        final CheckoutClientFactory checkoutClientFactory = new CheckoutClientFactory(adyenConfigProperties);
 
         final LoggingInInterceptor loggingInInterceptor = new LoggingInInterceptor();
         final LoggingOutInterceptor loggingOutInterceptor = new LoggingOutInterceptor();
         final HttpHeaderInterceptor httpHeaderInterceptor = new HttpHeaderInterceptor();
         final PaymentPortRegistry adyenPaymentPortRegistry = new AdyenPaymentPortRegistry(adyenConfigProperties, loggingInInterceptor, loggingOutInterceptor, httpHeaderInterceptor);
         final AdyenPaymentRequestSender adyenPaymentRequestSender = new AdyenPaymentRequestSender(adyenPaymentPortRegistry);
-
-        adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender);
+        adyenPaymentServiceProviderPort = new AdyenPaymentServiceProviderPort(adyenRequestFactory, adyenPaymentRequestSender, checkoutClientFactory);
         final DirectoryClient directoryClient = new DirectoryClient(adyenConfigProperties.getDirectoryUrl(),
                                                                     adyenConfigProperties.getProxyServer(),
                                                                     adyenConfigProperties.getProxyPort(),

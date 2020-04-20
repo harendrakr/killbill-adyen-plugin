@@ -21,6 +21,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.adyen.model.checkout.PaymentsDetailsRequest;
+import com.adyen.model.checkout.PaymentsRequest;
 import org.killbill.adyen.payment.ModificationRequest;
 import org.killbill.adyen.payment.PaymentRequest;
 import org.killbill.adyen.payment.PaymentRequest3D;
@@ -29,6 +31,8 @@ import org.killbill.billing.plugin.adyen.client.AdyenConfigProperties;
 import org.killbill.billing.plugin.adyen.client.model.PaymentData;
 import org.killbill.billing.plugin.adyen.client.model.SplitSettlementData;
 import org.killbill.billing.plugin.adyen.client.model.UserData;
+import org.killbill.billing.plugin.adyen.client.payment.builder.checkout.CheckoutDetailsBuilder;
+import org.killbill.billing.plugin.adyen.client.payment.builder.checkout.CheckoutPaymentsBuilder;
 import org.killbill.billing.plugin.adyen.client.payment.converter.PaymentInfoConverterManagement;
 import org.killbill.billing.plugin.adyen.client.payment.exception.SignatureGenerationException;
 import org.killbill.billing.plugin.adyen.client.payment.service.Signer;
@@ -75,5 +79,15 @@ public class AdyenRequestFactory {
                                                                 adyenConfigProperties,
                                                                 signer);
         return builder.build();
+    }
+
+    public PaymentsRequest createKlarnaPayment(final String merchantAccount, final PaymentData paymentData, final UserData userData) {
+        final CheckoutPaymentsBuilder requestBuilder = new CheckoutPaymentsBuilder(merchantAccount, paymentData, userData);
+        return requestBuilder.build();
+    }
+
+    public PaymentsDetailsRequest completeKlarnaPayment(final String merchantAccount, final PaymentData paymentData, final UserData userData) {
+        final CheckoutDetailsBuilder requestBuilder = new CheckoutDetailsBuilder(merchantAccount, paymentData, userData);
+        return requestBuilder.build();
     }
 }
