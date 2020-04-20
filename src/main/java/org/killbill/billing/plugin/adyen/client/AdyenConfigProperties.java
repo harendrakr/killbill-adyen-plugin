@@ -533,11 +533,11 @@ public class AdyenConfigProperties {
     public String getEnvironment() { return environment; }
 
     public String getApiKey(final String countryCode) {
-        final String apiKey = countryToApiKeyMap.get(countryCode);
+        final String apiKey = countryToApiKeyMap.get(adjustCountryCode(countryCode));
         return StringUtils.isEmpty(apiKey) ? MISSING_API_KEY : apiKey;
     }
 
     public String getLiveUrl(final String countryCode) {
-        return countryToLiveUrlMap.get(countryCode);
+        return countryToLiveUrlMap.get(adjustCountryCode(countryCode));
     }
 }

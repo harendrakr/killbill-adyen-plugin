@@ -242,12 +242,14 @@ public class TestAdyenConfigProperties {
 
         //live url config
         Assert.assertEquals(adyenConfigProperties.getLiveUrl("UK"), "https://uk-live.adyen.com");
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("GB"), "https://uk-live.adyen.com");
         Assert.assertEquals(adyenConfigProperties.getLiveUrl("DE"), "https://de-live.adyen.com");
         Assert.assertNull(adyenConfigProperties.getLiveUrl("AU"));
         Assert.assertNull(adyenConfigProperties.getLiveUrl(""));
 
         //api key config
         Assert.assertEquals(adyenConfigProperties.getApiKey("UK"), "API_KEY_UK");
+        Assert.assertEquals(adyenConfigProperties.getApiKey("GB"), "API_KEY_UK");
         Assert.assertEquals(adyenConfigProperties.getApiKey("DE"), "API_KEY_DE");
         Assert.assertEquals(adyenConfigProperties.getApiKey("AU"), MISSING_API_KEY);
         Assert.assertEquals(adyenConfigProperties.getApiKey(""), MISSING_API_KEY);
