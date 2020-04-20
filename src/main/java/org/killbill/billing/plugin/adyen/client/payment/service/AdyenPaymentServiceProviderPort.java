@@ -177,7 +177,7 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
             return handleKlarnaAuthoriseError(adyenCallResult, paymentData);
         }
 
-        return handleKlarnaAuthoriseResponse(adyenCallResult, merchantAccount);
+        return handleKlarnaAuthoriseResponse(adyenCallResult, paymentData, merchantAccount);
     }
 
     private AdyenCheckoutApiClient getAdyenCheckoutClient(final String countryCode) {
@@ -211,15 +211,22 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
         }
     }
 
-    private PurchaseResult handleKlarnaAuthoriseResponse(AdyenCallResult<PaymentsResponse> adyenCallResult, final String merchantAccount) {
+    private PurchaseResult handleKlarnaAuthoriseResponse(AdyenCallResult<PaymentsResponse> adyenCallResult,
+                                                         final PaymentData paymentData,
+                                                         final String merchantAccount) {
         final PaymentsResponse response = adyenCallResult.getResult().get();
+        final KlarnaPaymentInfo paymentInfo = (KlarnaPaymentInfo)paymentData.getPaymentInfo();
 
         CheckoutPaymentsResult result = new CheckoutPaymentsResult();
         PaymentsResponse.ResultCodeEnum resultCode = response.getResultCode();
         result.setResultCode(resultCode.toString());
         result.setPspReference(response.getPspReference());
+        result.setMerchantAccount(merchantAccount);
+        result.setPaymentInfo(paymentInfo);
+        result.setPaymentExternalKey(paymentData.getPaymentTransactionExternalKey());
 
         if(resultCode == PaymentsResponse.ResultCodeEnum.REDIRECTSHOPPER) {
+            logger.info("Klarna payment response: RedirectShopper");
             CheckoutPaymentsAction actionData = response.getAction();
             if(actionData.getType() == CheckoutPaymentsAction.CheckoutActionType.REDIRECT) {
                 result.setFormUrl(actionData.getUrl());
@@ -240,8 +247,8 @@ public class AdyenPaymentServiceProviderPort extends BaseAdyenPaymentServiceProv
                 }
                 result.setAuthResultKeys(keyTypes);
             }
-        } else {
-            logger.error("Received unexpected resultCode:" + resultCode.toString());
+        } else if(resultCode == PaymentsResponse.ResultCodeEnum.AUTHORISED) {
+            logger.info("Klarna payment response: Authorised");
         }
 
         return result.toPurchaseResult();

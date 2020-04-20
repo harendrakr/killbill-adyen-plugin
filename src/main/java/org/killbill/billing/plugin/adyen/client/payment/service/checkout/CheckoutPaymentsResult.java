@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.killbill.billing.plugin.adyen.api.AdyenPaymentPluginApi;
 import org.killbill.billing.plugin.adyen.client.model.PaymentServiceProviderResult;
 import org.killbill.billing.plugin.adyen.client.model.PurchaseResult;
+import org.killbill.billing.plugin.adyen.client.model.paymentinfo.KlarnaPaymentInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,7 @@ public class CheckoutPaymentsResult {
     private Map<String, String> authResultKeys;
     private String merchantAccount;
     private String paymentExternalKey;
+    private KlarnaPaymentInfo paymentInfo;
     private final Logger logger;
 
     public CheckoutPaymentsResult() {
@@ -91,6 +93,9 @@ public class CheckoutPaymentsResult {
     public String getPaymentExternalKey() { return paymentExternalKey; }
     public void setPaymentExternalKey(final String paymentExternalKey) { this.paymentExternalKey = paymentExternalKey; }
 
+    public KlarnaPaymentInfo getPaymentInfo() { return paymentInfo; }
+    public void setPaymentInfo(final KlarnaPaymentInfo paymentInfo) { this.paymentInfo = paymentInfo; }
+
     public PurchaseResult toPurchaseResult() {
         //convert the result to PurchaseResult
         ObjectMapper mapper = new ObjectMapper();
@@ -112,7 +117,15 @@ public class CheckoutPaymentsResult {
             additionalData.put(AdyenPaymentPluginApi.PROPERTY_MERCHANT_ACCOUNT_CODE, merchantAccount);
         }
 
-        if(formParameter != null) {
+        if(paymentInfo.getIdentifierMap() != null && !paymentInfo.getIdentifierMap().isEmpty()) {
+            try {
+                String hashedIdStr = mapper.writeValueAsString(paymentInfo.getIdentifierMap());
+                additionalData.put("identifierMap", hashedIdStr);
+            } catch (JsonProcessingException ex) {
+                logger.error("Failed to save hashIdentifiers: " + ex.getMessage());
+            }
+        }
+        if(formParameter != null && !formParameter.isEmpty()) {
             try {
                 String formParams = mapper.writeValueAsString(formParameter);
                 additionalData.put("formParameter", formParams);
@@ -120,8 +133,7 @@ public class CheckoutPaymentsResult {
                 logger.error("Failed to save formParameters: " + ex.getMessage());
             }
         }
-
-        if(authResultKeys != null) {
+        if(authResultKeys != null && !authResultKeys.isEmpty()) {
             try {
                 String authKeyNames = mapper.writeValueAsString(authResultKeys);
                 additionalData.put("resultKeys", authKeyNames);
