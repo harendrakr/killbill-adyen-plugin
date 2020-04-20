@@ -19,7 +19,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestCheckoutPaymentsBuilder extends TestKlarnaPaymentInfoBase {
     private final String countryCode = "GB";
     private final String merchantAccount = "MerchantAccount";
-    private final String shippingAddress = "{\"address1\":\"Address Line1\",\"address2\":\"Address Line2\",\"city\":\"My City\",\"state\":\"My State\",\"country\":\"My Country\",\"postalCode\":\"AB111CD\"}";
+    private final String shippingAddress = "{\"address1\":\"Address Line1\",\"address2\":\"Address Line2\",\"city\":\"My City\",\"state\":\"My State\",\"country\":\"GB\",\"postalCode\":\"AB111CD\"}";
     private final String customerAccount= "{\"accountId\":\"ACCOUNT_ID009\",\"registrationDate\":\"2019-08-08T09:16:15Z\",\"lastModifiedDate\":\"2019-08-08T09:50:15Z\"}";
     private final String lineItems = "[{\"id\":\"Item_ID090909\",\"quantity\":\"2\",\"taxAmount\":\"69\",\"taxPercentage\":\"2100\",\"amountExcludingTax\":\"331\",\"amountIncludingTax\":\"400\",\"description\":\"Black Shoes\",\"productName\":\"School Shoes\",\"productCategory\":\"Shoes\",\"merchantId\":\"MERCHANT_ID0909\",\"merchantName\":\"Local Shopee\",\"inventoryType\":\"goods\"},{\"id\":\"Item_ID090910\",\"quantity\":\"1\",\"taxAmount\":\"52\",\"taxPercentage\":\"2100\",\"amountExcludingTax\":\"248\",\"amountIncludingTax\":\"300\",\"description\":\"Wine Tasting\",\"productName\":\"Winery\",\"productCategory\":\"Experience\",\"merchantId\":\"MERCHANT_ID0909\",\"merchantName\":\"Local Vineyard\",\"inventoryType\":\"vis\"}]";
 
@@ -47,7 +47,7 @@ public class TestCheckoutPaymentsBuilder extends TestKlarnaPaymentInfoBase {
 
         //shopper data
         assertEquals(request.getShopperEmail(), shopperEmail);
-        assertEquals(request.getShopperLocale(), shopperLocale.toString());
+        assertEquals(request.getShopperLocale(), shopperLocale.getLanguage());
         assertEquals(request.getShopperName().getFirstName(), firstName);
         assertEquals(request.getShopperName().getLastName(), lastName);
         assertEquals(request.getShopperName().getGender(), Name.GenderEnum.valueOf(gender));
@@ -67,11 +67,37 @@ public class TestCheckoutPaymentsBuilder extends TestKlarnaPaymentInfoBase {
 
         //delivery address
         Address address = request.getDeliveryAddress();
-        assertEquals(address.getHouseNumberOrName(), "Address Line1");
-        assertEquals(address.getStreet(), "Address Line2");
+        assertEquals(address.getHouseNumberOrName(), "Address Line2");
+        assertEquals(address.getStreet(), "Address Line1");
         assertEquals(address.getCity(), "My City");
         assertEquals(address.getStateOrProvince(), "My State");
-        assertEquals(address.getCountry(), "My Country");
+        assertEquals(address.getCountry(), "GB");
         assertEquals(address.getPostalCode(), "AB111CD");
+    }
+
+    @Test(groups = "fast")
+    public void testDefaultAddressFieldsInRequest() throws Exception {
+        final String addressWithBlankFields = "{\"address1\":\"\",\"address2\":\"\",\"city\":\"\",\"state\":\"\",\"country\":\"GB\",\"postalCode\":\"\"}";
+        KlarnaPaymentInfo paymentInfo = getPaymentInfo(merchantAccount,
+                                                       countryCode,
+                                                       customerAccount,
+                                                       addressWithBlankFields,
+                                                       lineItems,
+                                                       null);
+        PaymentData paymentData = new PaymentData<PaymentInfo>(
+                BigDecimal.valueOf(12), Currency.EUR,
+                UUID.randomUUID().toString(), paymentInfo);
+
+        final CheckoutPaymentsBuilder builder = new CheckoutPaymentsBuilder(
+                merchantAccount, paymentData, getUserData());
+
+        //delivery address
+        Address address = builder.build().getDeliveryAddress();
+        assertEquals(address.getHouseNumberOrName(), "NA");
+        assertEquals(address.getStreet(), "NA");
+        assertEquals(address.getCity(), "NA");
+        assertEquals(address.getStateOrProvince(), "NA");
+        assertEquals(address.getCountry(), "GB");
+        assertEquals(address.getPostalCode(), "NA");
     }
 }

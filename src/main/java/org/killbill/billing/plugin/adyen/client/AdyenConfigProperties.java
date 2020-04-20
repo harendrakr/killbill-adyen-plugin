@@ -26,12 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
-
 import javax.annotation.Nullable;
-
+import org.apache.cxf.common.util.StringUtils;
 import org.joda.time.Period;
-import org.jooq.tools.StringUtils;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +60,7 @@ public class AdyenConfigProperties {
     private static final String KEY_VALUE_DELIMITER = "#";
     private static final String DEFAULT_CONNECTION_TIMEOUT = "30000";
     private static final String DEFAULT_READ_TIMEOUT = "60000";
+    public static final String MISSING_API_KEY = "API_KEY_NOT_FOUND";
 
     private final Map<String, String> paymentProcessorAccountIdToMerchantAccountMap = new LinkedHashMap<>();
     private final Map<String, String> countryToMerchantAccountMap = new LinkedHashMap<String, String>();
@@ -77,8 +75,8 @@ public class AdyenConfigProperties {
     private final Map<String, String> regionToDirectoryUrlMap = new LinkedHashMap<String, String>();
     private final List<String> sensitivePropertyKeys = new ArrayList<>();
     private final List<String> persistablePluginProperties = new ArrayList<>();
-    private final List<String> checkoutApiCountries = new ArrayList<>();
     private final Map<String, String> countryToApiKeyMap = new LinkedHashMap<String, String>();
+    private final Map<String, String> countryToLiveUrlMap = new LinkedHashMap<String, String>();
 
     private final String paymentProcessorAccountIdToMerchantAccount;
     private final String merchantAccounts;
@@ -230,16 +228,26 @@ public class AdyenConfigProperties {
         this.rbacPassword = properties.getProperty(PROPERTY_PREFIX + "rbacPassword");
 
         this.environment = properties.getProperty(CHECKOUT_PREFIX + "environment", "TEST");
-        readCheckoutApiKeyConfig(properties);
+        readCheckoutApiConfiguration(properties);
     }
 
-    private void readCheckoutApiKeyConfig(final Properties properties) {
+    private void readCheckoutApiConfiguration(final Properties properties) {
+        //countryToLiveUrlMap
+        final List<String> checkoutApiCountries = new ArrayList<>();
         readConfigurationValuesToList(properties.getProperty(CHECKOUT_PREFIX + "country"), checkoutApiCountries);
         for (final String countryCode: checkoutApiCountries) {
+            //read API keys
             final String apiKeyPrefix = CHECKOUT_PREFIX + "apiKey." + countryCode.toUpperCase();
             final String apiKeyValue = properties.getProperty(apiKeyPrefix);
             if(!StringUtils.isEmpty(apiKeyValue)) {
                 countryToApiKeyMap.put(countryCode, apiKeyValue);
+            }
+
+            //read API live url
+            final String apiUrlPrefix = CHECKOUT_PREFIX + "liveUrl." + countryCode.toUpperCase();
+            final String apiUrlValue = properties.getProperty(apiUrlPrefix);
+            if(!StringUtils.isEmpty(apiUrlValue)) {
+                countryToLiveUrlMap.put(countryCode, apiUrlValue);
             }
         }
     }
@@ -525,7 +533,11 @@ public class AdyenConfigProperties {
     public String getEnvironment() { return environment; }
 
     public String getApiKey(final String countryCode) {
-        final String apiKey = countryToApiKeyMap.get(countryCode);
-        return StringUtils.isEmpty(apiKey) ? "KEY_NOT_FOUND" : apiKey;
+        final String apiKey = countryToApiKeyMap.get(adjustCountryCode(countryCode));
+        return StringUtils.isEmpty(apiKey) ? MISSING_API_KEY : apiKey;
+    }
+
+    public String getLiveUrl(final String countryCode) {
+        return countryToLiveUrlMap.get(adjustCountryCode(countryCode));
     }
 }

@@ -24,6 +24,8 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
+import static org.killbill.billing.plugin.adyen.client.AdyenConfigProperties.MISSING_API_KEY;
+
 public class TestAdyenConfigProperties {
 
     @Test(groups = "fast")
@@ -42,8 +44,6 @@ public class TestAdyenConfigProperties {
         properties.put("org.killbill.billing.plugin.adyen.persistablePluginProperties", "3ds2.csrf|3ds2.resUrl|3ds2.formUrl");
         properties.put("org.killbill.billing.plugin.adyen.rbacUsername", "foo");
         properties.put("org.killbill.billing.plugin.adyen.rbacPassword", "bar");
-        properties.put("org.killbill.billing.plugin.adyen.apiKey", "TEST_API_KEY");
-        properties.put("org.killbill.billing.plugin.adyen.environment", "TEST_ENV");
         final AdyenConfigProperties adyenConfigProperties = new AdyenConfigProperties(properties);
 
         Assert.assertEquals(adyenConfigProperties.getMerchantAccount("UK"), "DefaultAccount");
@@ -75,8 +75,6 @@ public class TestAdyenConfigProperties {
         Assert.assertEquals(adyenConfigProperties.getPersistablePluginProperties(), ImmutableList.of("3ds2.csrf", "3ds2.resUrl", "3ds2.formUrl"));
         Assert.assertEquals(adyenConfigProperties.getRbacUsername(), "foo");
         Assert.assertEquals(adyenConfigProperties.getRbacPassword(), "bar");
-        //Assert.assertEquals(adyenConfigProperties.getApiKey(), "TEST_API_KEY");
-        Assert.assertEquals(adyenConfigProperties.getEnvironment(), "TEST_ENV");
     }
 
     @Test(groups = "fast")
@@ -235,17 +233,30 @@ public class TestAdyenConfigProperties {
         properties.put("org.killbill.billing.plugin.adyen.checkout.country", "UK|NL|DE");
         properties.put("org.killbill.billing.plugin.adyen.checkout.apiKey.UK", "API_KEY_UK");
         properties.put("org.killbill.billing.plugin.adyen.checkout.apiKey.DE", "API_KEY_DE");
+        properties.put("org.killbill.billing.plugin.adyen.checkout.liveUrl.UK", "https://uk-live.adyen.com");
+        properties.put("org.killbill.billing.plugin.adyen.checkout.liveUrl.DE", "https://de-live.adyen.com");
         final AdyenConfigProperties adyenConfigProperties = new AdyenConfigProperties(properties);
 
+        //environment config
         Assert.assertEquals(adyenConfigProperties.getEnvironment(), "DEV");
+
+        //live url config
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("UK"), "https://uk-live.adyen.com");
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("GB"), "https://uk-live.adyen.com");
+        Assert.assertEquals(adyenConfigProperties.getLiveUrl("DE"), "https://de-live.adyen.com");
+        Assert.assertNull(adyenConfigProperties.getLiveUrl("AU"));
+        Assert.assertNull(adyenConfigProperties.getLiveUrl(""));
+
+        //api key config
         Assert.assertEquals(adyenConfigProperties.getApiKey("UK"), "API_KEY_UK");
+        Assert.assertEquals(adyenConfigProperties.getApiKey("GB"), "API_KEY_UK");
         Assert.assertEquals(adyenConfigProperties.getApiKey("DE"), "API_KEY_DE");
-        Assert.assertEquals(adyenConfigProperties.getApiKey("JP"), "KEY_NOT_FOUND");
-        Assert.assertEquals(adyenConfigProperties.getApiKey("NL"), "KEY_NOT_FOUND");
-        Assert.assertEquals(adyenConfigProperties.getApiKey(""), "KEY_NOT_FOUND");
+        Assert.assertEquals(adyenConfigProperties.getApiKey("AU"), MISSING_API_KEY);
+        Assert.assertEquals(adyenConfigProperties.getApiKey(""), MISSING_API_KEY);
 
         final AdyenConfigProperties adyenConfigWithoutKey = new AdyenConfigProperties(new Properties());
         Assert.assertEquals(adyenConfigWithoutKey.getEnvironment(), "TEST");
-        Assert.assertEquals(adyenConfigWithoutKey.getApiKey("UK"), "KEY_NOT_FOUND");
+        Assert.assertEquals(adyenConfigWithoutKey.getApiKey("UK"), MISSING_API_KEY);
+        Assert.assertNull(adyenConfigWithoutKey.getLiveUrl("UK"));
     }
 }

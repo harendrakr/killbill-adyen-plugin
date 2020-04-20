@@ -3,18 +3,16 @@ package org.killbill.billing.plugin.adyen.api.mapping;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.killbill.billing.payment.api.PluginProperty;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.Account;
-import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper.Address;
+import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper.CustomerAccount;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper.LineAdjustment;
-import org.apache.cxf.common.util.CollectionUtils;
-import org.killbill.billing.payment.api.PluginProperty;
-import org.killbill.billing.plugin.adyen.api.mapping.klarna.Account;
-import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.PropertyMapper.LineItem;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.Seller;
 import org.killbill.billing.plugin.adyen.api.mapping.klarna.Voucher;
 import org.killbill.billing.plugin.adyen.client.model.PaymentInfo;
 import org.killbill.billing.plugin.adyen.client.model.paymentinfo.KlarnaPaymentInfo.KlarnaPaymentInfoBuilder;
 import org.killbill.billing.plugin.api.PluginProperties;
+import org.apache.cxf.common.util.CollectionUtils;
 import org.jooq.tools.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,12 +43,12 @@ public abstract class KlarnaPaymentMappingService {
         setAccountInfo(properties, builder);
         setShippingAddress(properties, builder);
 
-        List<PropertyMapper.LineItem> lineItems = extractLineItems(properties);
+        List<LineItem> lineItems = extractLineItems(properties);
         if(!CollectionUtils.isEmpty(lineItems)) {
             setVoucherInfo(lineItems, builder);
             setSellerInfo(lineItems, builder);
             List<LineItem> adjustments = getLineAdjustments(lineItems);
-            if(adjustments != null) {
+            if(!CollectionUtils.isEmpty(adjustments)) {
                 lineItems.addAll(adjustments);
             }
 
@@ -61,11 +59,11 @@ public abstract class KlarnaPaymentMappingService {
     }
 
     private static List<LineItem> extractLineItems(Iterable<PluginProperty> properties) {
-        List<PropertyMapper.LineItem> lineItems = null;
+        List<LineItem> lineItems = null;
         final String itemsJson = PluginProperties.findPluginPropertyValue(PROPERTY_LINE_ITEMS, properties);
         if(!StringUtils.isEmpty(itemsJson)) {
             try {
-                PropertyMapper.LineItem[] items = mapper.readValue(itemsJson, PropertyMapper.LineItem[].class);
+                LineItem[] items = mapper.readValue(itemsJson, LineItem[].class);
                 lineItems = new ArrayList<>(Arrays.asList(items));
             } catch (IOException e) {
                 logger.error("Failed to parse lineItems, error={}\n{}", e.getMessage(), e.getStackTrace());
@@ -80,10 +78,10 @@ public abstract class KlarnaPaymentMappingService {
     private static List<LineItem> getLineAdjustments(final List<LineItem> lineItems) {
         final Map<String, LineAdjustment> adjustmentMap = new HashMap<>();
         final List<LineItem> adjustmentLines = new ArrayList<>();
-        if(lineItems!= null && lineItems.size() > 0) {
+        if(!CollectionUtils.isEmpty(lineItems)) {
             for(LineItem lineItem: lineItems) {
                 List<LineAdjustment> adjustments = lineItem.getAdjustments();
-                if(adjustments != null && adjustments.size() > 0) {
+                if(!CollectionUtils.isEmpty(adjustments)) {
                     for(LineAdjustment adjustment: adjustments) {
                         if(adjustmentMap.containsKey(adjustment.getType())) {
                             //update the amount for existing adjustment record
@@ -114,12 +112,12 @@ public abstract class KlarnaPaymentMappingService {
             }
         }
 
-        return adjustmentLines.size() > 0 ? adjustmentLines : null;
+        return adjustmentLines;
     }
 
-    private static void setVoucherInfo(List<PropertyMapper.LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
+    private static void setVoucherInfo(List<LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
         List<Voucher> vouchers = new ArrayList<>();
-        for(PropertyMapper.LineItem item: lineItems) {
+        for(LineItem item: lineItems) {
             if(item.isVoucher()) {
                 if (!StringUtils.isEmpty(item.getDescription()) ||
                     !StringUtils.isEmpty(item.getMerchantName())) {
@@ -134,9 +132,9 @@ public abstract class KlarnaPaymentMappingService {
         builder.setVouchers(vouchers);
     }
 
-    private static void setSellerInfo(List<PropertyMapper.LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
+    private static void setSellerInfo(List<LineItem> lineItems, KlarnaPaymentInfoBuilder builder) {
         List<Seller> sellers = new ArrayList<>();
-        for(PropertyMapper.LineItem item: lineItems) {
+        for(LineItem item: lineItems) {
             if(!StringUtils.isEmpty(item.getProductName()) ||
                !StringUtils.isEmpty(item.getProductCategory()) ||
                !StringUtils.isEmpty(item.getMerchantId())) {
@@ -156,7 +154,7 @@ public abstract class KlarnaPaymentMappingService {
         String accountInfoValue = PluginProperties.findPluginPropertyValue(PROPERTY_CUSTOMER_ACCOUNT, properties);
         if(!StringUtils.isEmpty(accountInfoValue)) {
             try {
-                PropertyMapper.CustomerAccount customerAccount = mapper.readValue(accountInfoValue, PropertyMapper.CustomerAccount.class);
+                CustomerAccount customerAccount = mapper.readValue(accountInfoValue, CustomerAccount.class);
                 Account account = new Account();
                 account.setIdentifier(customerAccount.getAccountId());
                 account.setRegistrationDate(customerAccount.getRegistrationDate());
@@ -174,7 +172,7 @@ public abstract class KlarnaPaymentMappingService {
         String shippingAddressJson = PluginProperties.findPluginPropertyValue(PROPERTY_SHIPPING_ADDRESS, properties);
         if(!StringUtils.isEmpty(shippingAddressJson)) {
             try {
-                PropertyMapper.Address shippingAddress = mapper.readValue(shippingAddressJson, PropertyMapper.Address.class);
+                Address shippingAddress = mapper.readValue(shippingAddressJson, Address.class);
                 builder.setShippingAddress(shippingAddress);
             } catch (IOException e) {
                 logger.error("Failed to parse shippingAddress, error={}\n{}", e.getMessage(), e.getStackTrace());

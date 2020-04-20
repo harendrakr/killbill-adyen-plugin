@@ -99,13 +99,20 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
     }
 
     private void setDeliveryAddress(PropertyMapper.Address shippingAddress){
+        //default the empty fields in shipping address as "NA", since these are required fields from Adyen
+        final String address1 = StringUtils.isEmpty(shippingAddress.getAddress1()) ? "NA" : shippingAddress.getAddress1();
+        final String address2 = StringUtils.isEmpty(shippingAddress.getAddress2()) ? "NA" : shippingAddress.getAddress2();
+        final String state = StringUtils.isEmpty(shippingAddress.getState()) ? "NA" : shippingAddress.getState();
+        final String city = StringUtils.isEmpty(shippingAddress.getCity()) ? "NA" : shippingAddress.getCity();
+        final String postalCode = StringUtils.isEmpty(shippingAddress.getPostalCode()) ? "NA" : shippingAddress.getPostalCode();
+
         Address address = new Address();
-        address.setHouseNumberOrName(shippingAddress.getAddress1());
-        address.setStreet(shippingAddress.getAddress2());
-        address.setStateOrProvince(shippingAddress.getState()); //optional
-        address.setCity(shippingAddress.getCity());
+        address.setStreet(address1);
+        address.setHouseNumberOrName(address2);
+        address.setCity(city);
+        address.setStateOrProvince(state);
+        address.setPostalCode(postalCode);
         address.setCountry(shippingAddress.getCountry());
-        address.setPostalCode(shippingAddress.getPostalCode());
         request.setDeliveryAddress(address);
     }
 
@@ -115,6 +122,7 @@ public class CheckoutPaymentsBuilder extends RequestBuilder<PaymentsRequest> {
         if(!StringUtils.isEmpty(additionalData)) {
             String encodedData = Base64.getEncoder().encodeToString(additionalData.getBytes(Charsets.UTF_8));
             request.putAdditionalDataItem(OPEN_INVOICE_MERCHANT_DATA, encodedData);
+            logger.info("Merchant data: " + additionalData);
         } else {
             logger.error("Failed to include merchant data in payment request");
         }

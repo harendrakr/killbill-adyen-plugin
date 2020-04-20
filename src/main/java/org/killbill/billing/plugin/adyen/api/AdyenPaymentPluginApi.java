@@ -551,8 +551,6 @@ public class AdyenPaymentPluginApi extends PluginPaymentPluginApi<AdyenResponses
                                     rbacUsername,
                                     rbacPassword
                             ));
-                } else if (PaymentServiceProviderResult.REDIRECT_SHOPPER.getResponses()[0].equals(responsesRecord.getResultCode())) {
-                    //TODO: Check user has completed interaction on Klarna page
                 }
             }
             return result;
